@@ -60,7 +60,6 @@ impl Rule for First {
                     // TODO: support absolute first option
 
                     if no_import_count > 0 {
-                        // TODO: support references
                         ctx.diagnostic(FirstDiagnostic(
                             module_decl.span(),
                         ));
