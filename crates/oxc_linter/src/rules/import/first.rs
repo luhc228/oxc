@@ -1,6 +1,6 @@
-use oxc_ast::AstKind;
+use oxc_ast::{ast::Statement, AstKind};
 use oxc_macros::declare_oxc_lint;
-use oxc_span::{Atom, GetSpan, Span};
+use oxc_span::{GetSpan, Span};
 use oxc_diagnostics::{
     miette::{self, Diagnostic},
     thiserror::Error,
@@ -37,26 +37,39 @@ declare_oxc_lint!(
 impl Rule for First {
     fn run_once(&self, ctx: &LintContext) {
         let mut no_import_count  = 0;
+        let mut any_expressions = false;
 
-        for ast_node in ctx.semantic().nodes().iter() {
-            match ast_node.kind() {
-                AstKind::ModuleDeclaration(module_decl) => {
-                    if module_decl.is_import() {
-                        // TODO: support absolute first option
+        let Some(root) = ctx.nodes().iter().next() else { return };
+        let AstKind::Program(program) = root.kind() else { return };
 
-                        if no_import_count > 0 {
-                            ctx.diagnostic(FirstDiagnostic(
-                                module_decl.span(),
-                            ));
-                        }
-                    } else {
-                        no_import_count += 1;
+        let directive = program.directives.iter().next();
+        let mut directive_span: Option<Span> = None;
+        if let Some(directive) = directive {
+            directive_span = Some(directive.span());
+        }
+
+        for statement in &program.body {
+            if !any_expressions && directive_span.is_some() && directive_span.unwrap().end >= statement.span().start  {
+                break;
+            }
+
+            any_expressions = true;
+
+            if let Statement::ModuleDeclaration(module_decl) = statement {
+                if module_decl.is_import() {
+                    // TODO: support absolute first option
+
+                    if no_import_count > 0 {
+                        // TODO: support references
+                        ctx.diagnostic(FirstDiagnostic(
+                            module_decl.span(),
+                        ));
                     }
-                },
-                _ => {
-                    println!("we are here {:#?}", ast_node.kind());
+                } else {
                     no_import_count += 1;
                 }
+            } else {
+                no_import_count += 1;
             }
         }
     }
@@ -71,8 +84,38 @@ fn test() {
             "import { x } from './foo'; 
             import { y } from './bar';
             export { x, y };",
+
+            "'use directive';\
+            import { x } from 'foo';",
+
+            "import { x } from 'foo'; import { y } from './bar'",
+
+            "import { x } from './foo'; import { y } from 'bar'",
         ];
-        let fail: Vec<&str> = vec![];
+        let fail = vec![
+            "import { x } from './foo';\
+            export { x };\
+            import { y } from './bar';",
+
+            "import { x } from './foo';\
+            export { x };\
+            import { y } from './bar';\
+            import { z } from './baz';",
+
+            // directive
+            "import { x } from 'foo';\
+              'use directive';\
+              import { y } from 'bar';",
+
+            //   reference
+            "var a = 1;\
+              import { y } from './bar';\
+              if (true) { x() };\
+              import { x } from './foo';\
+              import { z } from './baz';",
+
+            "if (true) { console.log(1) }import a from 'b'",
+        ];
 
         Tester::new(First::NAME, pass, fail)
         .change_rule_path("index.js")
