@@ -11,8 +11,19 @@ use serde::Serialize;
 #[allow(clippy::wildcard_imports)]
 use crate::ast::*;
 
+#[cfg_attr(
+    all(feature = "serde", feature = "wasm"),
+    wasm_bindgen::prelude::wasm_bindgen(typescript_custom_section)
+)]
+#[allow(dead_code)]
+const TS_APPEND_CONTENT: &'static str = r#"
+export interface TSAbstractPropertyDefinition extends Omit<PropertyDefinition, 'type'> {}
+export interface TSAbstractMethodDefinition extends Omit<MethodDefinition, 'type'> {}
+"#;
+
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSThisParameter<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -25,6 +36,7 @@ pub struct TSThisParameter<'a> {
 /// `const_opt` enum `BindingIdentifier` { `EnumBody_opt` }
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSEnumDeclaration<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -38,6 +50,7 @@ pub struct TSEnumDeclaration<'a> {
 /// A scope must be created on the enum body so this abstraction exists
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSEnumBody<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -46,6 +59,7 @@ pub struct TSEnumBody<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSEnumMember<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -55,6 +69,7 @@ pub struct TSEnumMember<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(untagged))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub enum TSEnumMemberName<'a> {
     Identifier(IdentifierName),
     StringLiteral(StringLiteral),
@@ -66,6 +81,7 @@ pub enum TSEnumMemberName<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSTypeAnnotation<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -74,6 +90,7 @@ pub struct TSTypeAnnotation<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSLiteralType<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -82,6 +99,7 @@ pub struct TSLiteralType<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(untagged, rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub enum TSLiteral<'a> {
     BooleanLiteral(Box<'a, BooleanLiteral>),
     NullLiteral(Box<'a, NullLiteral>),
@@ -95,6 +113,7 @@ pub enum TSLiteral<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(untagged, rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub enum TSType<'a> {
     // Keyword
     TSAnyKeyword(Box<'a, TSAnyKeyword>),
@@ -146,6 +165,7 @@ impl<'a> TSType<'a> {
 /// <https://www.typescriptlang.org/docs/handbook/2/conditional-types.html#handbook-content>
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSConditionalType<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -160,6 +180,7 @@ pub struct TSConditionalType<'a> {
 /// <https://www.typescriptlang.org/docs/handbook/typescript-in-5-minutes-func.html#unions>
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSUnionType<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -171,6 +192,7 @@ pub struct TSUnionType<'a> {
 /// <https://www.typescriptlang.org/docs/handbook/2/objects.html#intersection-types>
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSIntersectionType<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -181,7 +203,8 @@ pub struct TSIntersectionType<'a> {
 ///
 /// <https://www.typescriptlang.org/docs/handbook/2/keyof-types.html>
 #[derive(Debug, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename = "TSTypeOperator"))]
+#[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSTypeOperatorType<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -190,7 +213,8 @@ pub struct TSTypeOperatorType<'a> {
 }
 
 #[derive(Debug, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize), serde(untagged, rename_all = "lowercase"))]
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "lowercase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub enum TSTypeOperator {
     Keyof,
     Unique,
@@ -202,6 +226,7 @@ pub enum TSTypeOperator {
 /// <https://www.typescriptlang.org/docs/handbook/2/objects.html#the-array-type>
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSArrayType<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -213,6 +238,7 @@ pub struct TSArrayType<'a> {
 /// <https://www.typescriptlang.org/docs/handbook/2/indexed-access-types.html#handbook-content>
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSIndexedAccessType<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -225,6 +251,7 @@ pub struct TSIndexedAccessType<'a> {
 /// <https://www.typescriptlang.org/docs/handbook/2/objects.html#tuple-types>
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSTupleType<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -233,6 +260,7 @@ pub struct TSTupleType<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSNamedTupleMember<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -243,6 +271,7 @@ pub struct TSNamedTupleMember<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSOptionalType<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -251,6 +280,7 @@ pub struct TSOptionalType<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSRestType<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -259,6 +289,7 @@ pub struct TSRestType<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(untagged, rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub enum TSTupleElement<'a> {
     TSType(TSType<'a>),
     TSOptionalType(Box<'a, TSOptionalType<'a>>),
@@ -268,6 +299,7 @@ pub enum TSTupleElement<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSAnyKeyword {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -275,6 +307,7 @@ pub struct TSAnyKeyword {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSStringKeyword {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -282,6 +315,7 @@ pub struct TSStringKeyword {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSBooleanKeyword {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -289,6 +323,7 @@ pub struct TSBooleanKeyword {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSNumberKeyword {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -296,6 +331,7 @@ pub struct TSNumberKeyword {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSNeverKeyword {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -303,6 +339,7 @@ pub struct TSNeverKeyword {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSUnknownKeyword {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -310,6 +347,7 @@ pub struct TSUnknownKeyword {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSNullKeyword {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -317,6 +355,7 @@ pub struct TSNullKeyword {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSUndefinedKeyword {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -324,6 +363,7 @@ pub struct TSUndefinedKeyword {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSVoidKeyword {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -331,6 +371,7 @@ pub struct TSVoidKeyword {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSSymbolKeyword {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -338,6 +379,7 @@ pub struct TSSymbolKeyword {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSThisKeyword {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -345,6 +387,7 @@ pub struct TSThisKeyword {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSObjectKeyword {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -352,6 +395,7 @@ pub struct TSObjectKeyword {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSBigIntKeyword {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -362,6 +406,7 @@ pub struct TSBigIntKeyword {
 /// type E = D.c.b.a;
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSTypeReference<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -374,6 +419,7 @@ pub struct TSTypeReference<'a> {
 ///     NamespaceName . IdentifierReference
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(untagged))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub enum TSTypeName<'a> {
     IdentifierReference(Box<'a, IdentifierReference>),
     QualifiedName(Box<'a, TSQualifiedName<'a>>),
@@ -416,6 +462,7 @@ impl GetSpan for TSTypeName<'_> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSQualifiedName<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -425,6 +472,7 @@ pub struct TSQualifiedName<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSTypeParameterInstantiation<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -433,6 +481,7 @@ pub struct TSTypeParameterInstantiation<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSTypeParameter<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -446,6 +495,7 @@ pub struct TSTypeParameter<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSTypeParameterDeclaration<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -454,6 +504,7 @@ pub struct TSTypeParameterDeclaration<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSTypeAliasDeclaration<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -480,6 +531,7 @@ pub struct TSAbstractPropertyDefinition<'a> {
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq, Copy)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "lowercase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub enum TSAccessibility {
     Private,
     Protected,
@@ -488,6 +540,7 @@ pub enum TSAccessibility {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSClassImplements<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -500,6 +553,7 @@ pub struct TSClassImplements<'a> {
 ///   interface `BindingIdentifier` `TypeParameters_opt` `InterfaceExtendsClause_opt` `ObjectType`
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSInterfaceDeclaration<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -513,6 +567,7 @@ pub struct TSInterfaceDeclaration<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSInterfaceBody<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -521,6 +576,7 @@ pub struct TSInterfaceBody<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSPropertySignature<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -533,6 +589,7 @@ pub struct TSPropertySignature<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(untagged, rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub enum TSSignature<'a> {
     TSIndexSignature(Box<'a, TSIndexSignature<'a>>),
     TSPropertySignature(Box<'a, TSPropertySignature<'a>>),
@@ -543,6 +600,7 @@ pub enum TSSignature<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSIndexSignature<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -552,6 +610,7 @@ pub struct TSIndexSignature<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSCallSignatureDeclaration<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -563,6 +622,7 @@ pub struct TSCallSignatureDeclaration<'a> {
 
 #[derive(Debug, Clone, Copy, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "lowercase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub enum TSMethodSignatureKind {
     Method,
     Get,
@@ -571,6 +631,7 @@ pub enum TSMethodSignatureKind {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSMethodSignature<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -586,6 +647,7 @@ pub struct TSMethodSignature<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSConstructSignatureDeclaration<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -596,6 +658,7 @@ pub struct TSConstructSignatureDeclaration<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSIndexSignatureName<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -605,6 +668,7 @@ pub struct TSIndexSignatureName<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSInterfaceHeritage<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -614,6 +678,7 @@ pub struct TSInterfaceHeritage<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSTypePredicate<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -624,6 +689,7 @@ pub struct TSTypePredicate<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(untagged, rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub enum TSTypePredicateName {
     Identifier(IdentifierName),
     This(TSThisKeyword),
@@ -631,6 +697,7 @@ pub enum TSTypePredicateName {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSModuleDeclaration<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -642,6 +709,7 @@ pub struct TSModuleDeclaration<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(untagged))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub enum TSModuleDeclarationName {
     Identifier(IdentifierName),
     StringLiteral(StringLiteral),
@@ -658,6 +726,7 @@ impl TSModuleDeclarationName {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(untagged))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub enum TSModuleDeclarationBody<'a> {
     TSModuleDeclaration(Box<'a, TSModuleDeclaration<'a>>),
     TSModuleBlock(Box<'a, TSModuleBlock<'a>>),
@@ -665,6 +734,7 @@ pub enum TSModuleDeclarationBody<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSModuleBlock<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -673,6 +743,7 @@ pub struct TSModuleBlock<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSTypeLiteral<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -681,6 +752,7 @@ pub struct TSTypeLiteral<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSInferType<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -689,6 +761,7 @@ pub struct TSInferType<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSTypeQuery<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -698,6 +771,7 @@ pub struct TSTypeQuery<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSImportType<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -709,6 +783,7 @@ pub struct TSImportType<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSFunctionType<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -720,6 +795,7 @@ pub struct TSFunctionType<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSConstructorType<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -731,6 +807,7 @@ pub struct TSConstructorType<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSMappedType<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -742,7 +819,8 @@ pub struct TSMappedType<'a> {
 }
 
 #[derive(Debug, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize), serde(untagged, rename_all = "camelCase"))]
+#[cfg_attr(feature = "serde", derive(Serialize), serde(rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub enum TSMappedTypeModifierOperator {
     True,
     #[cfg_attr(feature = "serde", serde(rename = "+"))]
@@ -754,6 +832,7 @@ pub enum TSMappedTypeModifierOperator {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSTemplateLiteralType<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -763,6 +842,7 @@ pub struct TSTemplateLiteralType<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSAsExpression<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -772,6 +852,7 @@ pub struct TSAsExpression<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSSatisfiesExpression<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -781,6 +862,7 @@ pub struct TSSatisfiesExpression<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSTypeAssertion<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -790,6 +872,7 @@ pub struct TSTypeAssertion<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSImportEqualsDeclaration<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -801,6 +884,7 @@ pub struct TSImportEqualsDeclaration<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(untagged, rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub enum TSModuleReference<'a> {
     TypeName(TSTypeName<'a>),
     ExternalModuleReference(TSExternalModuleReference),
@@ -808,6 +892,7 @@ pub enum TSModuleReference<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSExternalModuleReference {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -816,6 +901,7 @@ pub struct TSExternalModuleReference {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSNonNullExpression<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -824,6 +910,7 @@ pub struct TSNonNullExpression<'a> {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct Decorator<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -832,6 +919,7 @@ pub struct Decorator<'a> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub enum ModifierKind {
     Abstract,
     Accessor,
@@ -852,6 +940,7 @@ pub enum ModifierKind {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct Modifier {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -860,6 +949,7 @@ pub struct Modifier {
 
 #[derive(Debug, Default, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(transparent))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct Modifiers<'a>(Option<Vec<'a, Modifier>>);
 
 impl<'a> Modifiers<'a> {
@@ -891,6 +981,7 @@ impl<'a> Modifiers<'a> {
 /// `export = foo`
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSExportAssignment<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -902,6 +993,7 @@ pub struct TSExportAssignment<'a> {
 /// `export as namespace foo`
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSNamespaceExportDeclaration {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -910,6 +1002,7 @@ pub struct TSNamespaceExportDeclaration {
 
 #[derive(Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub struct TSInstantiationExpression<'a> {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub span: Span,
@@ -919,6 +1012,7 @@ pub struct TSInstantiationExpression<'a> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize), serde(tag = "type", rename_all = "camelCase"))]
+#[cfg_attr(all(feature = "serde", feature = "wasm"), derive(tsify::Tsify))]
 pub enum ImportOrExportKind {
     Value,
     Type,

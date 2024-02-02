@@ -19,26 +19,14 @@ use crate::{
     },
     diagnostics::Redeclaration,
     jsdoc::JSDocBuilder,
+    label::LabelBuilder,
     module_record::ModuleRecordBuilder,
     node::{AstNode, AstNodeId, AstNodes, NodeFlags},
-    pg::replicate_tree_to_leaves,
     reference::{Reference, ReferenceFlag, ReferenceId},
     scope::{ScopeFlags, ScopeId, ScopeTree},
     symbol::{SymbolFlags, SymbolId, SymbolTable},
     Semantic,
 };
-
-pub struct LabeledScope<'a> {
-    name: &'a str,
-    used: bool,
-    parent: usize,
-}
-
-struct UnusedLabels<'a> {
-    scopes: Vec<LabeledScope<'a>>,
-    curr_scope: usize,
-    labels: Vec<AstNodeId>,
-}
 
 #[derive(Debug, Clone)]
 pub struct VariableInfo {
@@ -66,8 +54,6 @@ pub struct SemanticBuilder<'a> {
     pub current_node_flags: NodeFlags,
     pub current_symbol_flags: SymbolFlags,
     pub current_scope_id: ScopeId,
-    /// Stores current `AstKind::Function` and `AstKind::ArrowExpression` during AST visit
-    pub function_stack: Vec<AstNodeId>,
     // To make a namespace/module value like
     // we need the to know the modules we are inside
     // and when we reach a value declaration we set it
@@ -83,7 +69,7 @@ pub struct SemanticBuilder<'a> {
 
     pub(crate) module_record: Arc<ModuleRecord>,
 
-    unused_labels: UnusedLabels<'a>,
+    pub label_builder: LabelBuilder<'a>,
 
     jsdoc: JSDocBuilder<'a>,
 
@@ -117,13 +103,12 @@ impl<'a> SemanticBuilder<'a> {
             current_symbol_flags: SymbolFlags::empty(),
             in_type_definition: false,
             current_scope_id,
-            function_stack: vec![],
             namespace_stack: vec![],
             nodes: AstNodes::default(),
             scope,
             symbols: SymbolTable::default(),
             module_record: Arc::new(ModuleRecord::default()),
-            unused_labels: UnusedLabels { scopes: vec![], curr_scope: 0, labels: vec![] },
+            label_builder: LabelBuilder::default(),
             jsdoc: JSDocBuilder::new(source_text, &trivias),
             check_syntax_error: false,
             redeclare_variables: RedeclareVariables { variables: vec![] },
@@ -185,7 +170,7 @@ impl<'a> SemanticBuilder<'a> {
             classes: self.class_table_builder.build(),
             module_record: Arc::clone(&self.module_record),
             jsdoc: self.jsdoc.build(),
-            unused_labels: self.unused_labels.labels,
+            unused_labels: self.label_builder.unused_node_ids,
             redeclare_variables: self.redeclare_variables.variables,
             cfg: self.cfg,
         };
@@ -203,7 +188,7 @@ impl<'a> SemanticBuilder<'a> {
             classes: self.class_table_builder.build(),
             module_record: Arc::new(ModuleRecord::default()),
             jsdoc: self.jsdoc.build(),
-            unused_labels: self.unused_labels.labels,
+            unused_labels: self.label_builder.unused_node_ids,
             redeclare_variables: self.redeclare_variables.variables,
             cfg: self.cfg,
         }
@@ -219,7 +204,7 @@ impl<'a> SemanticBuilder<'a> {
         if self.jsdoc.retrieve_jsdoc_comment(kind) {
             flags |= NodeFlags::JSDoc;
         }
-        let ast_node = AstNode::new(kind, self.current_scope_id, flags);
+        let ast_node = AstNode::new(kind, self.current_scope_id, self.cfg.current_node_ix, flags);
         let parent_node_id =
             if matches!(kind, AstKind::Program(_)) { None } else { Some(self.current_node_id) };
         self.current_node_id = self.nodes.add_node(ast_node, parent_node_id);
@@ -241,8 +226,9 @@ impl<'a> SemanticBuilder<'a> {
     }
 
     pub fn set_function_node_flag(&mut self, flag: NodeFlags) {
-        if let Some(current_function) = self.function_stack.last() {
-            *self.nodes.get_node_mut(*current_function).flags_mut() |= flag;
+        if self.current_scope_flags().is_function() {
+            *self.nodes.get_node_mut(self.scope.get_node_id(self.current_scope_id)).flags_mut() |=
+                flag;
         }
     }
 
@@ -680,6 +666,73 @@ impl<'a> Visit<'a> for SemanticBuilder<'a> {
         self.leave_node(kind);
     }
 
+    fn visit_logical_expression(&mut self, expr: &LogicalExpression<'a>) {
+        // logical expressions are short-circuiting, and therefore
+        // also represent control flow.
+        // For example, in:
+        //   foo && bar();
+        // the bar() call will only be executed if foo is truthy.
+        let kind = AstKind::LogicalExpression(self.alloc(expr));
+        self.enter_node(kind);
+
+        self.visit_expression(&expr.left);
+
+        /* cfg  */
+        let left_expr_end_ix = self.cfg.current_node_ix;
+        let right_expr_start_ix = self.cfg.new_basic_block();
+        /* cfg  */
+
+        self.visit_expression(&expr.right);
+
+        /* cfg */
+        let right_expr_end_ix = self.cfg.current_node_ix;
+        let after_logical_expr_ix = self.cfg.new_basic_block();
+
+        self.cfg.add_edge(left_expr_end_ix, right_expr_start_ix, EdgeType::Normal);
+        self.cfg.add_edge(left_expr_end_ix, after_logical_expr_ix, EdgeType::Normal);
+        self.cfg.add_edge(right_expr_end_ix, after_logical_expr_ix, EdgeType::Normal);
+        /* cfg */
+
+        self.leave_node(kind);
+    }
+
+    fn visit_assignment_expression(&mut self, expr: &AssignmentExpression<'a>) {
+        // assignment expressions can include an operator, which
+        // can be used to determine the control flow of the expression.
+        // For example, in:
+        //   foo &&= super();
+        // the super() call will only be executed if foo is truthy.
+
+        let kind = AstKind::AssignmentExpression(self.alloc(expr));
+        self.enter_node(kind);
+        self.visit_assignment_target(&expr.left);
+
+        /* cfg  */
+        let cfg_ixs = if expr.operator.is_logical() {
+            let target_end_ix = self.cfg.current_node_ix;
+            let expr_start_ix = self.cfg.new_basic_block();
+            Some((target_end_ix, expr_start_ix))
+        } else {
+            None
+        };
+        /* cfg  */
+
+        self.visit_expression(&expr.right);
+
+        /* cfg */
+        if let Some((target_end_ix, expr_start_ix)) = cfg_ixs {
+            let expr_end_ix = self.cfg.current_node_ix;
+            let after_assignment_ix = self.cfg.new_basic_block();
+
+            self.cfg.add_edge(target_end_ix, expr_start_ix, EdgeType::Normal);
+            self.cfg.add_edge(target_end_ix, after_assignment_ix, EdgeType::Normal);
+            self.cfg.add_edge(expr_end_ix, after_assignment_ix, EdgeType::Normal);
+        }
+        /* cfg */
+
+        self.leave_node(kind);
+    }
+
     fn visit_for_statement(&mut self, stmt: &ForStatement<'a>) {
         let kind = AstKind::ForStatement(self.alloc(stmt));
         let is_lexical_declaration =
@@ -1021,6 +1074,7 @@ impl<'a> Visit<'a> for SemanticBuilder<'a> {
         /* cfg */
 
         /* cfg - put unreachable after return */
+        let _ = self.cfg.new_basic_block();
         self.cfg.put_unreachable();
 
         self.cfg.after_statement(
@@ -1166,169 +1220,194 @@ impl<'a> Visit<'a> for SemanticBuilder<'a> {
         let kind = AstKind::TryStatement(self.alloc(stmt));
         self.enter_node(kind);
 
+        // There are 3 possible kinds of Try Statements (See
+        //    <https://tc39.es/ecma262/#sec-try-statement>):
+        // 1. try-catch
+        // 2. try-finally
+        // 3. try-catch-finally
+        //
+        // We will consider each kind of try statement separately.
+        //
+        // For a try-catch, there are only 2 ways to reach
+        // the outgoing node (after the entire statement):
+        //
+        // 1. after the try block completing successfully
+        // 2. after the catch block completing successfully,
+        //    in which case some statement in the try block
+        //    must have thrown.
+        //
+        // For a try-finally, there is only 1 way to reach
+        // the outgoing node, whereby:
+        // - the try block completed successfully, and
+        // - the finally block completed successfully
+        //
+        // But the finally block can also be reached when the try
+        // fails. We thus need to fork the control flow graph into
+        // 2 different finally statements:
+        //    1. one where the try block completes successfully, (finally_succ)
+        //    2. one where some statement in the try block throws (finally_err)
+        // Only the end of the try block will have an incoming edge to the
+        // finally_succ, and only finally_succ will have an outgoing node to
+        // the next statement.
+        //
+        // For a try-catch-finally, we have seemlingly more cases:
+        //   1. after the try block completing successfully
+        //   2. after the catch block completing successfully
+        //   3. after the try block if the catch block throws
+        // Despite having 3 distings scenarios, we can simplify the control flow
+        // graph by still only using a finally_succ and a finally_err node.
+        // The key is that the outgoing edge going past the entire
+        // try-catch-finally statement is guaranteed that all code paths have
+        // either completed the try block or the catch block in full.
+
+        // Implementation notes:
+        // We will use the following terminology:
+        //
+        // the "parent after_throw block" is the block that would be the target
+        // of a throw if there were no try-catch-finally.
+        //
+        // Within the try block, a throw will not go to the parent after_throw
+        // block. Instead, it will go to the catch block in a try-catch or to
+        // the finally_err block in a try-catch-finally.
+        //
+        // In a catch block, a throw will go to the finally_err block in a
+        // try-catch-finally, or to the parent after_throw block in a basic
+        // try-catch.
+        //
+        // In a finally block, a throw will always go to the parent after_throw
+        // block, both for finally_succ and finally_err.
+
         /* cfg */
         let statement_state = self
             .cfg
             .before_statement(self.current_node_id, StatementControlFlowType::DoesNotUseContinue);
 
-        let before_try_stmt_graph_ix = self.cfg.current_node_ix;
-        let catch_block_graph_ix = self.cfg.new_basic_block();
-        let catch_block_basic_block_id = self.cfg.current_basic_block;
-        // every statement created with this active adds an edge from that node to this
-        // catch block node
+        // TODO: support unwinding finally/catch blocks that aren't in this function
+        // even if something throws.
+        let parent_after_throw_block_ix = self.cfg.after_throw_block;
+
+        let try_stmt_pre_start_ix = self.cfg.current_node_ix;
+
+        let try_stmt_start_ix = self.cfg.new_basic_block();
+        self.cfg.add_edge(try_stmt_pre_start_ix, try_stmt_start_ix, EdgeType::Normal);
+        let try_after_throw_block_ix = self.cfg.new_basic_block();
+
+        self.cfg.current_node_ix = try_stmt_start_ix;
+
+        // every statement created with this active adds an edge from that node to this node
         //
         // NOTE: we oversimplify here, realistically even in between basic blocks we
         // do throwsy things which could cause problems, but for the most part simply
         // pointing the end of every basic block to the catch block is enough
-        self.cfg.after_throw_block = Some(catch_block_graph_ix);
-        let start_of_try_block_graph_ix = self.cfg.new_basic_block();
+        self.cfg.after_throw_block = Some(try_after_throw_block_ix);
+        // The one case that needs to be handled specially is if the first statement in the
+        // try block throws. In that case, it is not sufficient to rely on an edge after that
+        // statement, because the catch will run before that edge is taken.
+        self.cfg.add_edge(try_stmt_pre_start_ix, try_after_throw_block_ix, EdgeType::Normal);
         /* cfg */
 
         self.visit_block_statement(&stmt.block);
 
         /* cfg */
-        self.cfg.after_throw_block = None; // only active during try block
+        let end_of_try_block_ix = self.cfg.current_node_ix;
+        self.cfg.add_edge(end_of_try_block_ix, try_after_throw_block_ix, EdgeType::Normal);
+        self.cfg.after_throw_block = parent_after_throw_block_ix;
 
-        let end_of_try_block_graph_ix = self.cfg.current_node_ix;
+        let start_of_finally_err_block_ix = if stmt.finalizer.is_some() {
+            if stmt.handler.is_some() {
+                // try-catch-finally
+                Some(self.cfg.new_basic_block())
+            } else {
+                // try-finally
+                Some(try_after_throw_block_ix)
+            }
+        } else {
+            // try-catch
+            None
+        };
         /* cfg */
 
-        let optional_catch_block_graph_ix = if let Some(handler) = &stmt.handler {
+        let catch_block_end_ix = if let Some(handler) = &stmt.handler {
             /* cfg */
-            self.cfg.current_node_ix = catch_block_graph_ix;
-            self.cfg.current_basic_block = catch_block_basic_block_id;
+            let catch_after_throw_block_ix = if stmt.finalizer.is_some() {
+                start_of_finally_err_block_ix
+            } else {
+                parent_after_throw_block_ix
+            };
+            self.cfg.after_throw_block = catch_after_throw_block_ix;
+
+            let catch_block_start_ix = try_after_throw_block_ix;
+            self.cfg.current_node_ix = catch_block_start_ix;
+
+            if let Some(catch_after_throw_block_ix) = catch_after_throw_block_ix {
+                self.cfg.add_edge(
+                    catch_block_start_ix,
+                    catch_after_throw_block_ix,
+                    EdgeType::Normal,
+                );
+            }
             /* cfg */
 
             self.visit_catch_clause(handler);
 
-            Some((catch_block_graph_ix, self.cfg.current_node_ix))
+            /* cfg */
+            Some(self.cfg.current_node_ix)
+            /* cfg */
         } else {
-            /* cfg */
-            let preserved_node_ix = self.cfg.current_node_ix;
-            // each statement that connects the would be catch block should just point
-            // to an unreachable() as if any statement throws this function would end early
-            self.cfg.current_node_ix = catch_block_graph_ix;
-            self.cfg.put_unreachable();
-            self.cfg.current_node_ix = preserved_node_ix;
-            /* cfg */
-
             None
         };
-        let finally = if let Some(finalizer) = &stmt.finalizer {
+
+        // Restore the after_throw_block
+        self.cfg.after_throw_block = parent_after_throw_block_ix;
+
+        if let Some(finalizer) = &stmt.finalizer {
             /* cfg */
-            let start_of_finally_block_graph_ix = self.cfg.new_basic_block();
+            let finally_err_block_start_ix =
+                start_of_finally_err_block_ix.expect("this try statement has a finally_err block");
+
+            self.cfg.current_node_ix = finally_err_block_start_ix;
             /* cfg */
 
             self.visit_finally_clause(finalizer);
 
             /* cfg */
-            Some((start_of_finally_block_graph_ix, self.cfg.current_node_ix))
+            // put an unreachable after the finally_err block
+            self.cfg.put_unreachable();
+
+            let finally_succ_block_start_ix = self.cfg.new_basic_block();
+
+            // The end_of_try_block has an outgoing edge to finally_succ also
+            // for when the try block completes successfully.
+            self.cfg.add_edge(end_of_try_block_ix, finally_succ_block_start_ix, EdgeType::Normal);
+
+            // The end_of_catch_block has an outgoing edge to finally_succ for
+            // when the catch block in a try-catch-finally completes successfully.
+            if let Some(end_of_catch_block_ix) = catch_block_end_ix {
+                // try-catch-finally
+                self.cfg.add_edge(
+                    end_of_catch_block_ix,
+                    finally_succ_block_start_ix,
+                    EdgeType::Normal,
+                );
+            }
             /* cfg */
-        } else {
-            None
-        };
+
+            self.visit_finally_clause(finalizer);
+        }
 
         /* cfg */
-        let after_try_stmt_graph_ix = self.cfg.new_basic_block();
-
-        self.cfg.add_edge(before_try_stmt_graph_ix, start_of_try_block_graph_ix, EdgeType::Normal);
-        match (finally, optional_catch_block_graph_ix) {
-            (
-                Some((nothrow_finally_start, nothrow_finally_end)),
-                Some((catch_start, catch_end)),
-            ) => {
-                //                            <try>
-                //                              |
-                //                         (1)/  \(2)
-                //                 <nothrow fin>  |
-                //                     |          |
-                //             <fn continues>  <catch>
-                //                                |
-                //                           <throw fin>
-                //                                |
-                //                           <unreachable>
-                //                                |
-                //       todo: should continue to upper function's catch
-                let duplicated = replicate_tree_to_leaves(nothrow_finally_start, &mut self.cfg);
-                let throw_finally_start = duplicated[&nothrow_finally_start];
-
-                // 1
-                self.cfg.add_edge(end_of_try_block_graph_ix, catch_start, EdgeType::Normal);
-                self.cfg.add_edge(catch_end, throw_finally_start, EdgeType::Normal);
-                // 2
-                self.cfg.add_edge(
-                    end_of_try_block_graph_ix,
-                    nothrow_finally_start,
-                    EdgeType::Normal,
-                );
-                self.cfg.add_edge(nothrow_finally_end, after_try_stmt_graph_ix, EdgeType::Normal);
-
-                // throw can happen before a single statement finishes in try block - essentially skipping try block
-                self.cfg.add_edge(before_try_stmt_graph_ix, catch_start, EdgeType::Normal);
-            }
-            (Some((nothrow_finally_start, nothrow_finally_end)), None) => {
-                //                            <try>
-                //                              |
-                //                         (1)/  \(2)
-                //                 <nothrow fin>  |
-                //                     |          |
-                //             <fn continues>  <catch>
-                //                                |
-                //                           <throw fin>
-                //                                |
-                //                           <unreachable>
-                //                                |
-                //       todo: should continue to upper function's catch
-
-                let duplicated = replicate_tree_to_leaves(nothrow_finally_start, &mut self.cfg);
-                let throw_finally_start = duplicated[&nothrow_finally_start];
-                // 1
-                self.cfg.add_edge(
-                    end_of_try_block_graph_ix,
-                    nothrow_finally_start,
-                    EdgeType::Normal,
-                );
-                self.cfg.add_edge(nothrow_finally_end, after_try_stmt_graph_ix, EdgeType::Normal);
-
-                // 2
-
-                // even though we don't explicitly have a catch block, we still make a catch
-                // block in the cfg which immediately points to the throw catch block.
-                self.cfg.add_edge(
-                    end_of_try_block_graph_ix,
-                    catch_block_graph_ix,
-                    EdgeType::Normal,
-                );
-                self.cfg.add_edge(catch_block_graph_ix, throw_finally_start, EdgeType::Normal);
-                // throw can happen before a single statement finishes in try block - essentially skipping try block
-                self.cfg.add_edge(before_try_stmt_graph_ix, throw_finally_start, EdgeType::Normal);
-            }
-            (None, Some((catch_start, catch_end))) => {
-                self.cfg.add_edge(end_of_try_block_graph_ix, catch_start, EdgeType::Normal);
-                self.cfg.add_edge(catch_end, after_try_stmt_graph_ix, EdgeType::Normal);
-                // if nothing throws
-                self.cfg.add_edge(
-                    end_of_try_block_graph_ix,
-                    after_try_stmt_graph_ix,
-                    EdgeType::Normal,
-                );
-                // throw can happen before a single statement finishes in try block - essentially skipping try block
-                self.cfg.add_edge(before_try_stmt_graph_ix, catch_start, EdgeType::Normal);
-            }
-            (None, None) => {
-                // todo: support unwinding finally/catch blocks that aren't in this function
-                // even if something throws
-                self.cfg.add_edge(
-                    end_of_try_block_graph_ix,
-                    after_try_stmt_graph_ix,
-                    EdgeType::Normal,
-                );
-            }
-        }
+        let try_statement_block_end_ix = self.cfg.current_node_ix;
+        let after_try_statement_block_ix = self.cfg.new_basic_block();
+        self.cfg.add_edge(
+            try_statement_block_end_ix,
+            after_try_statement_block_ix,
+            EdgeType::Normal,
+        );
 
         self.cfg.after_statement(
             &statement_state,
             self.current_node_id,
-            after_try_stmt_graph_ix,
+            self.cfg.current_node_ix,
             None,
         );
         /* cfg */
@@ -1426,14 +1505,19 @@ impl<'a> Visit<'a> for SemanticBuilder<'a> {
             }
             flags
         });
-        self.enter_node(kind);
 
         /* cfg */
         let preserved = self.cfg.preserve_expression_state();
 
         let before_function_graph_ix = self.cfg.current_node_ix;
         let function_graph_ix = self.cfg.new_basic_block_for_function();
-        self.cfg.function_to_node_ix.insert(self.current_node_id, function_graph_ix);
+        /* cfg */
+
+        // We add a new basic block to the cfg before entering the node
+        // so that the correct cfg_ix is associated with the ast node.
+        self.enter_node(kind);
+
+        /* cfg */
         self.cfg.add_edge(before_function_graph_ix, function_graph_ix, EdgeType::NewFunction);
         /* cfg */
 
@@ -1519,17 +1603,20 @@ impl<'a> Visit<'a> for SemanticBuilder<'a> {
     fn visit_arrow_expression(&mut self, expr: &ArrowExpression<'a>) {
         let kind = AstKind::ArrowExpression(self.alloc(expr));
         self.enter_scope(ScopeFlags::Function | ScopeFlags::Arrow);
+
+        /* cfg */
+        let preserved = self.cfg.preserve_expression_state();
+        let current_node_ix = self.cfg.current_node_ix;
+        let function_graph_ix = self.cfg.new_basic_block_for_function();
+        /* cfg */
+
+        // We add a new basic block to the cfg before entering the node
+        // so that the correct cfg_ix is associated with the ast node.
         self.enter_node(kind);
 
         self.visit_formal_parameters(&expr.params);
 
         /* cfg */
-        let preserved = self.cfg.preserve_expression_state();
-
-        let current_basic_block_ix = self.cfg.current_basic_block;
-        let current_node_ix = self.cfg.current_node_ix;
-        let function_graph_ix = self.cfg.new_basic_block_for_function();
-        self.cfg.function_to_node_ix.insert(self.current_node_id, function_graph_ix);
         self.cfg.add_edge(current_node_ix, function_graph_ix, EdgeType::NewFunction);
         if expr.expression {
             self.cfg.store_assignments_into_this_array.push(vec![]);
@@ -1540,7 +1627,6 @@ impl<'a> Visit<'a> for SemanticBuilder<'a> {
 
         /* cfg */
         self.cfg.restore_expression_state(preserved);
-        self.cfg.current_basic_block = current_basic_block_ix;
         self.cfg.current_node_ix = current_node_ix;
         // self.cfg.put_x_in_register(AssignmentValue::Function(self.current_node_id));
         /* cfg */
@@ -1563,14 +1649,14 @@ impl<'a> SemanticBuilder<'a> {
                 decl.bind(self);
                 self.make_all_namespaces_valuelike();
             }
+            AstKind::StaticBlock(_) => self.label_builder.enter_function_or_static_block(),
             AstKind::Function(func) => {
-                self.function_stack.push(self.current_node_id);
                 func.bind(self);
+                self.label_builder.enter_function_or_static_block();
                 self.add_current_node_id_to_current_scope();
                 self.make_all_namespaces_valuelike();
             }
             AstKind::ArrowExpression(_) => {
-                self.function_stack.push(self.current_node_id);
                 self.add_current_node_id_to_current_scope();
                 self.make_all_namespaces_valuelike();
             }
@@ -1641,29 +1727,12 @@ impl<'a> SemanticBuilder<'a> {
                 self.reference_jsx_element_name(elem);
             }
             AstKind::LabeledStatement(stmt) => {
-                self.unused_labels.scopes.push(LabeledScope {
-                    name: stmt.label.name.as_str(),
-                    used: false,
-                    parent: self.unused_labels.curr_scope,
-                });
-                self.unused_labels.curr_scope = self.unused_labels.scopes.len() - 1;
+                self.label_builder.enter(stmt, self.current_node_id);
             }
-            AstKind::ContinueStatement(stmt) => {
-                if let Some(label) = &stmt.label {
-                    let scope =
-                        self.unused_labels.scopes.iter_mut().rev().find(|x| x.name == label.name);
-                    if let Some(scope) = scope {
-                        scope.used = true;
-                    }
-                }
-            }
-            AstKind::BreakStatement(stmt) => {
-                if let Some(label) = &stmt.label {
-                    let scope =
-                        self.unused_labels.scopes.iter_mut().rev().find(|x| x.name == label.name);
-                    if let Some(scope) = scope {
-                        scope.used = true;
-                    }
+            AstKind::ContinueStatement(ContinueStatement { label, .. })
+            | AstKind::BreakStatement(BreakStatement { label, .. }) => {
+                if let Some(label) = &label {
+                    self.label_builder.mark_as_used(label);
                 }
             }
             AstKind::YieldExpression(_) => {
@@ -1683,15 +1752,9 @@ impl<'a> SemanticBuilder<'a> {
             AstKind::ModuleDeclaration(decl) => {
                 self.current_symbol_flags -= Self::symbol_flag_from_module_declaration(decl);
             }
-            AstKind::LabeledStatement(_) => {
-                let scope = &self.unused_labels.scopes[self.unused_labels.curr_scope];
-                if !scope.used {
-                    self.unused_labels.labels.push(self.current_node_id);
-                }
-                self.unused_labels.curr_scope = scope.parent;
-            }
-            AstKind::Function(_) | AstKind::ArrowExpression(_) => {
-                self.function_stack.pop();
+            AstKind::LabeledStatement(_) => self.label_builder.leave(),
+            AstKind::StaticBlock(_) | AstKind::Function(_) => {
+                self.label_builder.leave_function_or_static_block();
             }
             AstKind::TSModuleBlock(_) => {
                 self.namespace_stack.pop();

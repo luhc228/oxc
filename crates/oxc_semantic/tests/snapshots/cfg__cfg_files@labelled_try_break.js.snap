@@ -12,15 +12,15 @@ bb1: {
 }
 
 bb2: {
-
-}
-
-bb3: {
 	$return = <value>
 }
 
+bb3: {
+
+}
+
 bb4: {
-	Unreachable()
+
 }
 
 bb5: {
@@ -28,7 +28,7 @@ bb5: {
 }
 
 bb6: {
-
+	Unreachable()
 }
 
 bb7: {
@@ -36,21 +36,25 @@ bb7: {
 }
 
 bb8: {
-	$return = <value>
+
 }
 
 bb9: {
-
+	Unreachable()
 }
 
 bb10: {
-	Unreachable()
+	$return = <value>
 }
 
 bb11: {
-	Unreachable()
+
 }
 
 bb12: {
+	Unreachable()
+}
+
+bb13: {
 
 }
