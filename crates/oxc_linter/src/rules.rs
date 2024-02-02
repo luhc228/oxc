@@ -300,6 +300,7 @@ mod nextjs {
     pub mod next_script_for_ga;
     pub mod no_assign_module_variable;
     pub mod no_async_client_component;
+    pub mod no_before_interactive_script_outside_document;
     pub mod no_css_tags;
     pub mod no_document_import_in_page;
     pub mod no_head_element;
@@ -309,6 +310,7 @@ mod nextjs {
     pub mod no_sync_scripts;
     pub mod no_title_in_document_head;
     pub mod no_typos;
+    pub mod no_unwanted_polyfillio;
 }
 
 oxc_macros::declare_all_lint_rules! {
@@ -584,4 +586,6 @@ oxc_macros::declare_all_lint_rules! {
     nextjs::no_title_in_document_head,
     nextjs::no_typos,
     nextjs::no_document_import_in_page,
+    nextjs::no_unwanted_polyfillio,
+    nextjs::no_before_interactive_script_outside_document,
 }

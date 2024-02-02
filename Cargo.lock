@@ -157,9 +157,9 @@ dependencies = [
 
 [[package]]
 name = "brotlic"
-version = "0.8.1"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8d5a350a871e06f5274bc1206bcd0da426522b4d0fbfad5fcec92806d854e5b"
+checksum = "f552f56f302af0006c32b50bfa2bdb4696fd6ba33c3ab9f6225fefdb1efdc680"
 dependencies = [
  "brotlic-sys",
 ]
@@ -556,9 +556,9 @@ dependencies = [
 
 [[package]]
 name = "env_logger"
-version = "0.11.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9eeb342678d785662fd2514be38c459bb925f02b68dd2a3e0f21d7ef82d979dd"
+checksum = "05e7cf40684ae96ade6232ed84582f40ce0a66efcd43a5117aef610534f8e0b8"
 dependencies = [
  "env_filter",
  "humantime",
@@ -755,6 +755,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "gloo-utils"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "037fcb07216cb3a30f7292bd0176b050b7b9a052ba830ef7d5d65f6dc64ba58e"
+dependencies = [
+ "js-sys",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
 name = "half"
 version = "1.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -850,9 +863,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.1.0"
+version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d530e1a18b1cb4c484e6e34556a0d948706958449fca0cab753d649f2bce3d1f"
+checksum = "433de089bd45971eecf4668ee0ee8f4cec17db4f8bd8f7bc3197a6ce37aa7d9b"
 dependencies = [
  "equivalent",
  "hashbrown",
@@ -902,9 +915,9 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.12.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25db6b064527c5d482d0423354fcd07a89a2dfe07b67892e62411946db7f07b0"
+checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
 dependencies = [
  "either",
 ]
@@ -1305,7 +1318,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b645dcde5f119c2c454a92d0dfa271a2a3b205da92e4292a68ead4bdbfde1f33"
 dependencies = [
  "heck",
- "itertools 0.12.0",
+ "itertools 0.12.1",
  "proc-macro2",
  "proc-macro2-diagnostics",
  "quote",
@@ -1373,6 +1386,8 @@ dependencies = [
  "ryu-js",
  "serde",
  "serde_json",
+ "tsify",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1500,7 +1515,6 @@ dependencies = [
  "globset",
  "ignore",
  "log",
- "miette",
  "oxc_allocator",
  "oxc_diagnostics",
  "oxc_linter",
@@ -1521,12 +1535,11 @@ dependencies = [
  "convert_case",
  "dashmap",
  "insta",
- "itertools 0.12.0",
+ "itertools 0.12.1",
  "json-strip-comments",
  "language-tags",
  "lazy_static",
  "memchr",
- "miette",
  "mime_guess",
  "num-traits",
  "once_cell",
@@ -1556,7 +1569,7 @@ name = "oxc_macros"
 version = "0.0.0"
 dependencies = [
  "convert_case",
- "itertools 0.12.0",
+ "itertools 0.12.1",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
@@ -1567,7 +1580,7 @@ name = "oxc_minifier"
 version = "0.5.0"
 dependencies = [
  "insta",
- "itertools 0.12.0",
+ "itertools 0.12.1",
  "jemallocator",
  "mimalloc",
  "num-bigint",
@@ -1602,24 +1615,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "oxc_napi_parser"
-version = "0.0.0"
-dependencies = [
- "flexbuffers",
- "miette",
- "napi",
- "napi-build",
- "napi-derive",
- "oxc_allocator",
- "oxc_ast",
- "oxc_parser",
- "oxc_span",
- "serde",
- "serde_json",
- "tokio",
-]
-
-[[package]]
 name = "oxc_parser"
 version = "0.5.0"
 dependencies = [
@@ -1636,6 +1631,36 @@ dependencies = [
  "oxc_syntax",
  "rustc-hash",
  "serde_json",
+]
+
+[[package]]
+name = "oxc_parser_napi"
+version = "0.0.0"
+dependencies = [
+ "flexbuffers",
+ "napi",
+ "napi-build",
+ "napi-derive",
+ "oxc_allocator",
+ "oxc_ast",
+ "oxc_diagnostics",
+ "oxc_parser",
+ "oxc_span",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "oxc_parser_wasm"
+version = "0.0.1"
+dependencies = [
+ "console_error_panic_hook",
+ "oxc",
+ "serde",
+ "serde-wasm-bindgen",
+ "tsify",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1669,13 +1694,14 @@ dependencies = [
 
 [[package]]
 name = "oxc_resolver"
-version = "1.2.1"
+version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c0eb6a40f9d03e5e4da3369c3f3f154e824c2ac46ea045cb7dfcefe6c7fa3dd"
+checksum = "cee5ab0cc7527aa402272a810615b9412985529a6124504fab03da76c7882f60"
 dependencies = [
  "dashmap",
  "dunce",
  "indexmap",
+ "json-strip-comments",
  "once_cell",
  "rustc-hash",
  "serde",
@@ -1691,8 +1717,7 @@ dependencies = [
  "bitflags 2.4.2",
  "indexmap",
  "insta",
- "itertools 0.12.0",
- "miette",
+ "itertools 0.12.1",
  "oxc_allocator",
  "oxc_ast",
  "oxc_diagnostics",
@@ -1705,6 +1730,8 @@ dependencies = [
  "pretty_assertions 1.4.0",
  "rustc-hash",
  "serde",
+ "tsify",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1714,6 +1741,8 @@ dependencies = [
  "compact_str",
  "miette",
  "serde",
+ "tsify",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1728,7 +1757,9 @@ dependencies = [
  "phf",
  "rustc-hash",
  "serde",
+ "tsify",
  "unicode-id-start",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1770,6 +1801,7 @@ dependencies = [
 name = "oxc_transformer"
 version = "0.5.0"
 dependencies = [
+ "bitflags 2.4.2",
  "oxc_allocator",
  "oxc_ast",
  "oxc_codegen",
@@ -1793,6 +1825,7 @@ dependencies = [
  "oxc_prettier",
  "serde",
  "serde-wasm-bindgen",
+ "tsify",
  "wasm-bindgen",
  "wasm-bindgen-test",
 ]
@@ -2296,9 +2329,9 @@ checksum = "b97ed7a9823b74f99c7742f5336af7be5ecd3eeafcb1507d1fa93347b1d589b0"
 
 [[package]]
 name = "serde"
-version = "1.0.195"
+version = "1.0.196"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63261df402c67811e9ac6def069e4786148c4563f4b50fd4bf30aa370d626b02"
+checksum = "870026e60fa08c69f064aa766c10f10b1d62db9ccd4d0abb206472bee0ce3b32"
 dependencies = [
  "serde_derive",
 ]
@@ -2316,9 +2349,20 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.195"
+version = "1.0.196"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46fe8f8603d81ba86327b23a2e9cdf49e1255fb94a4c5f297f6ee0547178ea2c"
+checksum = "33c85360c95e7d137454dc81d9a4ed2b8efd8fbe19cee57357b32b9771fccb67"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.48",
+]
+
+[[package]]
+name = "serde_derive_internals"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e578a843d40b4189a4d66bba51d7684f57da5bd7c304c64e14bd63efbef49509"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2327,9 +2371,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.111"
+version = "1.0.113"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "176e46fa42316f18edd598015a5166857fc835ec732f5215eac6b7bdbf0a84f4"
+checksum = "69801b70b1c3dac963ecb03a364ba0ceda9cf60c71cfe475e99864759c8b8a79"
 dependencies = [
  "indexmap",
  "itoa",
@@ -2350,9 +2394,9 @@ dependencies = [
 
 [[package]]
 name = "serde_yaml"
-version = "0.9.30"
+version = "0.9.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1bf28c79a99f70ee1f1d83d10c875d2e70618417fda01ad1785e027579d9d38"
+checksum = "adf8a49373e98a4c5f0ceb5d05aa7c648d75f63774981ed95b7c7443bbd50c6e"
 dependencies = [
  "indexmap",
  "itoa",
@@ -2757,6 +2801,31 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
+]
+
+[[package]]
+name = "tsify"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d6b26cf145f2f3b9ff84e182c448eaf05468e247f148cf3d2a7d67d78ff023a0"
+dependencies = [
+ "gloo-utils",
+ "serde",
+ "serde_json",
+ "tsify-macros",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "tsify-macros"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7a94b0f0954b3e59bfc2c246b4c8574390d94a4ad4ad246aaf2fb07d7dfd3b47"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde_derive_internals",
+ "syn 2.0.48",
 ]
 
 [[package]]

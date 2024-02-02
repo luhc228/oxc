@@ -125,7 +125,6 @@ impl<'a> Parser<'a> {
             function_type,
             self.end_span(span),
             id,
-            false, // expression
             generator,
             r#async,
             this_param,
@@ -254,7 +253,6 @@ impl<'a> Parser<'a> {
         Ok(self.ast.arrow_expression(
             self.end_span(span),
             expression,
-            false,
             r#async,
             params,
             body,
@@ -520,7 +518,6 @@ impl<'a> Parser<'a> {
         Ok(self.ast.arrow_expression(
             self.end_span(span),
             expression,
-            false,
             r#async,
             params,
             body,

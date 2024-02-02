@@ -20100,8 +20100,24 @@ Expect Syntax Error: "language/import/import-attributes/json-named-bindings.js"
     ╰────
 
   × 'export statement' declaration can only be used at the top level of a module
+    ╭─[language/module-code/parse-err-decl-pos-export-try-catch-finally.js:14:1]
+ 14 │ try { } catch (err) { } finally {
+ 15 │   export default null;
+    ·   ──────
+ 16 │ }
+    ╰────
+
+  × 'export statement' declaration can only be used at the top level of a module
     ╭─[language/module-code/parse-err-decl-pos-export-try-catch.js:14:1]
  14 │ try { } catch (err) {
+ 15 │   export default null;
+    ·   ──────
+ 16 │ }
+    ╰────
+
+  × 'export statement' declaration can only be used at the top level of a module
+    ╭─[language/module-code/parse-err-decl-pos-export-try-finally.js:14:1]
+ 14 │ try { } finally {
  15 │   export default null;
     ·   ──────
  16 │ }
@@ -20405,9 +20421,25 @@ Expect Syntax Error: "language/import/import-attributes/json-named-bindings.js"
     ╰────
 
   × 'import statement' declaration can only be used at the top level of a module
+    ╭─[language/module-code/parse-err-decl-pos-import-try-catch-finally.js:14:1]
+ 14 │ try { } catch (err) { } finally {
+ 15 │   import v from './decl-pos-import-try-catch-finally.js';
+    ·   ──────
+ 16 │ }
+    ╰────
+
+  × 'import statement' declaration can only be used at the top level of a module
     ╭─[language/module-code/parse-err-decl-pos-import-try-catch.js:14:1]
  14 │ try { } catch (err) {
  15 │   import v from './decl-pos-import-try-catch.js';
+    ·   ──────
+ 16 │ }
+    ╰────
+
+  × 'import statement' declaration can only be used at the top level of a module
+    ╭─[language/module-code/parse-err-decl-pos-import-try-finally.js:14:1]
+ 14 │ try { } finally {
+ 15 │   import v from './decl-pos-import-try-finally.js';
     ·   ──────
  16 │ }
     ╰────
@@ -21736,27 +21768,30 @@ Expect Syntax Error: "language/import/import-attributes/json-named-bindings.js"
  24 │     var y=2;
     ╰────
 
-  × Jump target cannot cross function boundary.
+  × Use of undefined label
     ╭─[language/statements/break/S12.8_A5_T1.js:22:1]
  22 │             return;
  23 │         break LABEL_ANOTHER_LOOP;
-    ·               ──────────────────
+    ·               ─────────┬────────
+    ·                        ╰── This label is used, but not defined
  24 │         LABEL_IN_2 : y++;
     ╰────
 
-  × Jump target cannot cross function boundary.
+  × Use of undefined label
     ╭─[language/statements/break/S12.8_A5_T2.js:24:1]
  24 │             return;
  25 │         break IN_DO_FUNC;
-    ·               ──────────
+    ·               ─────┬────
+    ·                    ╰── This label is used, but not defined
  26 │         LABEL_IN_2 : y++;
     ╰────
 
-  × Jump target cannot cross function boundary.
+  × Use of undefined label
     ╭─[language/statements/break/S12.8_A5_T3.js:24:1]
  24 │             return;
  25 │         break LABEL_IN;
-    ·               ────────
+    ·               ────┬───
+    ·                   ╰── This label is used, but not defined
  26 │         LABEL_IN_2 : y++;
     ╰────
 
@@ -28280,19 +28315,21 @@ Expect Syntax Error: "language/import/import-attributes/json-named-bindings.js"
  21 │   }
     ╰────
 
-  × Jump target cannot cross function boundary.
+  × Use of undefined label
     ╭─[language/statements/class/static-init-invalid-undefined-break-target.js:21:1]
  21 │     x: while (false) {
  22 │       break y;
-    ·             ─
+    ·             ┬
+    ·             ╰── This label is used, but not defined
  23 │     }
     ╰────
 
-  × Jump target cannot cross function boundary.
+  × Use of undefined label
     ╭─[language/statements/class/static-init-invalid-undefined-continue-target.js:21:1]
  21 │     x: while (false) {
  22 │       continue y;
-    ·                ─
+    ·                ┬
+    ·                ╰── This label is used, but not defined
  23 │     }
     ╰────
 

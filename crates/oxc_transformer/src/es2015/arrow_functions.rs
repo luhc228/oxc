@@ -128,7 +128,6 @@ impl<'a> ArrowFunctions<'a> {
                 SPAN,
                 None,
                 false,
-                arrow_expr.generator,
                 arrow_expr.r#async,
                 None,
                 self.ast.copy(&arrow_expr.params),
